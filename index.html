@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CivicPulse OS • Smart Community Management System</title>
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    :root[data-theme="dark"] {
+      --bg: #090d16;
+      --panel: #111827;
+      --panel-hover: #1e293b;
+      --border: #1f2937;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --blue: #3b82f6;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    :root[data-theme="light"] {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --panel-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #059669;
+      --accent-hover: #047857;
+      --blue: #2563eb;
+      --warn: #d97706;
+      --danger: #dc2626;
+      --shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; transition: background-color 0.2s, color 0.2s, border-color 0.2s; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Simulation SMS Toast */
+    #smsToast {
+      position: fixed;
+      top: 18px;
+      right: 20px;
+      background: #1e293b;
+      border: 1px solid var(--accent);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+      border-radius: 12px;
+      padding: 14px 18px;
+      z-index: 9999;
+      display: none;
+      max-width: 380px;
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .sms-header { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--accent); font-weight: 700; margin-bottom: 6px; }
+    .sms-body { font-size: 13px; color: #f8fafc; line-height: 1.4; }
+    .otp-highlight { background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-family: monospace; font-size: 15px; letter-spacing: 2px; }
+
+    /* Single Login Portal */
+    #authOverlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      width: 100%;
+      max-width: 440px;
+      padding: 32px 28px;
+    }
+    .auth-title { font-size: 24px; font-weight: 800; color: var(--accent); margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+    .auth-sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+
+    /* OTP Modal */
+    #otpOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .otp-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 400px;
+      padding: 28px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .otp-boxes {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 24px 0 16px;
+    }
+    .otp-input {
+      width: 50px;
+      height: 56px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .otp-input:focus { border-color: var(--accent); outline: none; }
+
+    /* Form Fields */
+    label { font-size: 13px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      font-size: 14px;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
+
+    /* Buttons */
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: var(--panel-hover); }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+    .btn-danger { background: var(--danger); color: white; }
+
+    /* App Layout */
+    .app-sidebar {
+      width: 270px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      position: fixed;
+      height: 100vh;
+      z-index: 10;
+    }
+    .app-main {
+      flex: 1;
+      margin-left: 270px;
+      padding: 28px 36px;
+      max-width: 1400px;
+    }
+    .nav-btn {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-btn:hover { background: var(--panel-hover); color: var(--text); }
+    .nav-btn.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent);
+      border-left: 4px solid var(--accent);
+    }
+
+    /* KPI Metrics */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+    }
+    .kpi-card::after {
+      content:''; position:absolute; top:0; left:0; width:100%; height:3px; background:var(--accent);
+    }
+    .kpi-card.warn::after { background: var(--warn); }
+    .kpi-card.blue::after { background: var(--blue); }
+    .kpi-num { font-size: 30px; font-weight: 800; margin: 4px 0; }
+    .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; }
+
+    /* Map & Container */
+    #map {
+      height: 440px;
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      z-index: 1;
+    }
+    .map-quick-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    /* Complaints Feed */
+    .issue-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .b-Reported { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+    .b-Assigned { background: rgba(245, 158, 11, 0.15); color: var(--warn); }
+    .b-InProgress { background: rgba(59, 130, 246, 0.15); color: var(--blue); }
+    .b-Resolved { background: rgba(16, 185, 129, 0.15); color: var(--accent); }
+
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+    .grid-2 { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
+    .panel-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      .app-sidebar { width: 100%; height: auto; position: relative; border-right: none; }
+      .app-main { margin-left: 0; padding: 18px; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SIMULATED SMS TOAST NOTIFICATION -->
+  <div id="smsToast">
+    <div class="sms-header">
+      <span>🔔 PCMC SMART CITIZEN GATEWAY</span>
+      <span onclick="document.getElementById('smsToast').style.display='none'" style="cursor:pointer">✕</span>
+    </div>
+    <div class="sms-body" id="smsContent">
+      Your CivicPulse verification OTP is <span class="otp-highlight">4829</span>. Valid for 10 minutes.
+    </div>
+  </div>
+
+  <!-- SINGLE UNIFIED AUTH MODAL -->
+  <div id="authOverlay">
+    <div class="auth-card">
+      <div class="auth-title">⚡ CivicPulse OS</div>
+      <div class="auth-sub">Akurdi – Tathawade – Wakad Civic Redressal Portal</div>
+
+      <form id="authForm" onsubmit="handleAuthSubmit(event)">
+        <label>Full Name / Officer Alias</label>
+        <input type="text" id="loginName" placeholder="e.g., Atharv Bandewar" required>
+
+        <label>10-Digit Mobile No. / Department User ID</label>
+        <input type="text" id="loginId" placeholder="e.g., 9876543210 or User ID" required>
+
+        <label>Select Ward / Sector Area</label>
+        <select id="loginArea">
+          <option value="Akurdi">Akurdi (Station & Pradhikaran)</option>
+          <option value="Ravet">Ravet BRT Chowk</option>
+          <option value="Punawale">Punawale Ward</option>
+          <option value="Tathawade" selected>Tathawade (RSCOE Campus)</option>
+          <option value="Dange Chowk">Dange Chowk</option>
+          <option value="Bhumkar Chowk">Bhumkar Chowk</option>
+          <option value="Wakad">Wakad Bridge / Hinjawadi Link</option>
+        </select>
+
+        <label style="margin-top:6px;">Officer Security Password (Leave blank for Citizens)</label>
+        <input type="password" id="loginPassword" placeholder="••••••••">
+
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;margin-top:8px;">
+          Proceed & Verify →
+        </button>
+      </form>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-top:14px;">
+        🔒 End-to-end encrypted civic grievance pipeline
+      </div>
+    </div>
+  </div>
+
+  <!-- OTP VERIFICATION MODAL (For Citizens) -->
+  <div id="otpOverlay">
+    <div class="otp-card">
+      <div style="font-size:40px;margin-bottom:8px;">📱</div>
+      <h3 style="margin:0 0 6px;">OTP Verification</h3>
+      <p style="font-size:13px;color:var(--muted);margin:0;" id="otpPromptText">
+        We sent a 4-digit verification code to your mobile.
+      </p>
+
+      <div class="otp-boxes">
+        <input type="text" maxlength="1" class="otp-input" id="o1" autofocus onkeyup="moveOtpFocus(this, 'o2', '')">
+        <input type="text" maxlength="1" class="otp-input" id="o2" onkeyup="moveOtpFocus(this, 'o3', 'o1')">
+        <input type="text" maxlength="1" class="otp-input" id="o3" onkeyup="moveOtpFocus(this, 'o4', 'o2')">
+        <input type="text" maxlength="1" class="otp-input" id="o4" onkeyup="moveOtpFocus(this, '', 'o3')">
+      </div>
+
+      <div id="otpError" style="color:var(--danger);font-size:13px;height:18px;margin-bottom:12px;"></div>
+
+      <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="verifyOtp()">
+        Verify & Sign In
+      </button>
+
+      <div style="margin-top:16px;font-size:13px;color:var(--muted);">
+        Didn't receive code? <span id="resendTimer" style="color:var(--accent);font-weight:600;cursor:pointer;" onclick="resendOtp()">Resend in 30s</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="app-sidebar">
+    <div style="font-size:18px;font-weight:800;color:var(--accent);margin-bottom:24px;display:flex;align-items:center;gap:8px;">
+      ⚡ CivicPulse
+    </div>
+    
+    <div style="padding:10px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);margin-bottom:20px;">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Signed In User</div>
+      <b id="userBadgeName" style="font-size:14px;display:block;">Loading...</b>
+      <span id="userBadgeRole" class="badge b-InProgress" style="font-size:10px;margin-top:4px;display:inline-block;">Citizen</span>
+    </div>
+
+    <button class="nav-btn active" onclick="switchView('mapView', this)">🗺️ Corridor Map (Akurdi–Wakad)</button>
+    <button class="nav-btn" onclick="switchView('reportView', this)">📢 File Complaint</button>
+    <button class="nav-btn" onclick="switchView('queueView', this)">📋 Issue Tracker</button>
+    <button class="nav-btn" onclick="switchView('iotView', this)">🤖 Arduino IoT Simulator</button>
+
+    <div style="margin-top:auto;border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:8px;">
+      <button class="btn btn-outline btn-sm" onclick="toggleTheme()" id="themeBtn">☀️ Light Mode</button>
+      <button class="btn btn-danger btn-sm" onclick="logout()">🚪 Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="app-main">
+    
+    <!-- STATS ROW -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Active Reports</div>
+        <div class="kpi-num" id="kpiTotal">0</div>
+        <small style="color:var(--muted);">In PCMC Corridor</small>
+      </div>
+      <div class="kpi-card warn">
+        <div class="kpi-label">Pending / Assigned</div>
+        <div class="kpi-num" id="kpiPending">0</div>
+        <small style="color:var(--warn);">Action Required</small>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">In Progress</div>
+        <div class="kpi-num" id="kpiProgress">0</div>
+        <small style="color:var(--blue);">Crew on Site</small>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Resolved</div>
+        <div class="kpi-num" id="kpiResolved">0</div>
+        <small style="color:var(--accent);">Citizen Confirmed</small>
+      </div>
+    </div>
+
+    <!-- VIEW 1: MAP (Akurdi to Wakad) -->
+    <section id="view-mapView" class="view-section active">
+      <div class="panel-card">
+        <h3>🗺️ Akurdi to Wakad Real-Time Corridor Telemetry</h3>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+          Live geo-tagged community issues across Akurdi, Ravet BRT, Punawale, Tathawade, Dange Chowk, and Wakad.
+        </p>
+
+        <div class="map-quick-links">
+          <span style="font-size:13px;color:var(--muted);margin-right:6px;align-self:center;">Focus Landmark:</span>
+          <button class="btn btn-outline btn-sm" onclick="jumpMap(18.6477, 73.7744, 15)">Akurdi Station</button>
+          <button class="btn btn-outline btn-sm" onclick="jumpMap(18.6395, 73.7438, 15)">Ravet Chowk</button>
+          <button class="btn btn-outline btn-sm" onclick="jumpMap(18.6186, 73.7554, 16)">Tathawade RSCOE</button>
+          <button class="btn btn-outline btn-sm" onclick="jumpMap(18.6152, 73.7801, 15)">Dange Chowk</button>
+          <button class="btn btn-outline btn-sm" onclick="jumpMap(18.5987, 73.7661, 15)">Wakad Bridge</button>
+        </div>
+
+        <div id="map"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: REPORT COMPLAINT -->
+    <section id="view-reportView" class="view-section">
+      <div class="grid-2">
+        <div class="panel-card">
+          <h3>📢 Report Community Issue</h3>
+          <form id="complaintForm" onsubmit="submitComplaint(event)">
+            <label>Specific Landmark / Street</label>
+            <input type="text" id="issueLoc" placeholder="e.g., Near Dange Chowk Subway or Tathawade JSPM Gate" required>
+
+            <label>Corridor Ward / Node</label>
+            <select id="issueWard">
+              <option value="Akurdi">Akurdi Station & Pradhikaran</option>
+              <option value="Ravet">Ravet BRT Chowk</option>
+              <option value="Punawale">Punawale Ward</option>
+              <option value="Tathawade" selected>Tathawade (RSCOE Campus)</option>
+              <option value="Dange Chowk">Dange Chowk</option>
+              <option value="Bhumkar Chowk">Bhumkar Chowk</option>
+              <option value="Wakad">Wakad Bridge</option>
+            </select>
+
+            <label>Category of Grievance</label>
+            <select id="issueCat" required>
+              <option value="">Select Category...</option>
+              <option value="Water Leakage">💧 Water Leakage (Water Dept)</option>
+              <option value="Garbage">🗑️ Garbage Overflow (Sanitation Dept)</option>
+              <option value="Pothole">🛣️ Pothole / Road Damage (Road Dept)</option>
+              <option value="Streetlight">💡 Streetlight Outage (Electrical Dept)</option>
+              <option value="Drainage">🌧️ Blocked Drainage (Drainage Dept)</option>
+            </select>
+
+            <label>Severity Level</label>
+            <select id="issuePriority">
+              <option value="Normal">Normal Priority</option>
+              <option value="High">High Priority</option>
+              <option value="Urgent">Critical / Urgent Priority</option>
+            </select>
+
+            <label>Detailed Description</label>
+            <textarea id="issueDesc" rows="3" placeholder="Provide details for the field engineer..." required></textarea>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;">
+              🚀 Transmit Complaint to Department Admin
+            </button>
+          </form>
+        </div>
+
+        <div class="panel-card">
+          <h3>ℹ️ Routing Architecture</h3>
+          <p style="color:var(--muted);font-size:13px;line-height:1.6;">
+            Tickets are routed automatically to the designated department officer's console based on the chosen category.
+          </p>
+          <div style="font-size:13px;color:var(--muted);line-height:2.2;">
+            • <b>Water Leakage</b> ➔ Water Department Admin<br>
+            • <b>Garbage Overflow</b> ➔ Sanitation Team Admin<br>
+            • <b>Pothole</b> ➔ Civil Road Department Admin<br>
+            • <b>Streetlight</b> ➔ Electrical Department Admin<br>
+            • <b>Drainage</b> ➔ Drainage Department Admin
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: DISPATCH QUEUE -->
+    <section id="view-queueView" class="view-section">
+      <div class="panel-card">
+        <h3>📋 Active Complaint Feed</h3>
+        <div id="queueNotice" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+        <div id="issuesList"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: ARDUINO IOT SIMULATOR -->
+    <section id="view-iotView" class="view-section">
+      <div class="panel-card">
+        <h3>🤖 Arduino IoT Field Node Emulation</h3>
+        <p style="color:var(--muted);font-size:13px;">
+          Simulate ultrasonic water level, infrared garbage fullness, or LDR streetlight sensors transmitting telemetry into the CivicPulse backend.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;">
+          <button class="btn btn-outline" onclick="triggerSensor('Water Leakage', 'Tathawade Pipeline Node A', 18.6186, 73.7554, 'Pipe burst detected via ultrasonic flow threshold.')">
+            💧 Water Flow Sensor Spike (Tathawade)
+          </button>
+          <button class="btn btn-outline" onclick="triggerSensor('Garbage', 'Ravet BRT Chowk Dustbin #3', 18.6395, 73.7438, 'Ultrasonic depth sensor reported 98% bin volume.')">
+            🗑️ Smart Bin Full (Ravet Chowk)
+          </button>
+          <button class="btn btn-outline" onclick="triggerSensor('Streetlight', 'Akurdi Pradhikaran Light Pole #14', 18.6477, 73.7744, 'LDR sensor loop open circuit at 21:00 hrs.')">
+            💡 Streetlight Fault (Akurdi)
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const STORAGE_KEY = 'civicpulse_akurdi_wakad_data';
+    const OTP_KEY = 'cp_temp_otp';
+
+    // Department Registry
+    const ADMIN_CREDENTIALS = {
+      'water_admin': { dept: 'Water Department', label: '💧 Water Dept Officer', cat: 'Water Leakage' },
+      'garbage_admin': { dept: 'Sanitation Team', label: '🗑️ Sanitation Officer', cat: 'Garbage' },
+      'road_admin': { dept: 'Road Department', label: '🛣️ Road Dept Officer', cat: 'Pothole' },
+      'light_admin': { dept: 'Electrical Department', label: '💡 Electrical Dept Officer', cat: 'Streetlight' },
+      'drain_admin': { dept: 'Drainage Department', label: '🌧️ Drainage Dept Officer', cat: 'Drainage' }
+    };
+
+    // Predefined Corridor Coordinates
+    const COORDS = {
+      'Akurdi': [18.6477, 73.7744],
+      'Ravet': [18.6395, 73.7438],
+      'Punawale': [18.6253, 73.7490],
+      'Tathawade': [18.6186, 73.7554],
+      'Dange Chowk': [18.6152, 73.7801],
+      'Bhumkar Chowk': [18.6015, 73.7630],
+      'Wakad': [18.5987, 73.7661]
+    };
+
+    // Default Seed Data
+    let complaints = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || [
+      { id:'MYA-101', n:'Atharv B.', m:'9876543210', l:'Near RSCOE Tathawade Gate', ward:'Tathawade', c:'Water Leakage', p:'High', d:'Underground pipe leaking heavily onto main road.', s:'In Progress', dept:'Water Department', act:'Plumbing team on site.', lat:18.6186, lng:73.7554 },
+      { id:'MYA-102', n:'Priya S.', m:'9822001122', l:'Ravet BRT Terminal', ward:'Ravet', c:'Garbage', p:'Urgent', d:'Community bin overflowing onto walkway.', s:'Reported', dept:'Sanitation Team', act:'Awaiting assignment.', lat:18.6395, lng:73.7438 },
+      { id:'MYA-103', n:'Rohan K.', m:'9811223344', l:'Dange Chowk Flyover Underpass', ward:'Dange Chowk', c:'Pothole', p:'Urgent', d:'Deep pothole causing two-wheeler skids.', s:'Assigned', dept:'Road Department', act:'Assigned to PWD patch team.', lat:18.6152, lng:73.7801 },
+      { id:'MYA-104', n:'Anita M.', m:'9765432100', l:'Akurdi Station Road', ward:'Akurdi', c:'Streetlight', p:'Normal', d:'Three streetlights dark since two days.', s:'Resolved', dept:'Electrical Department', act:'LED units replaced & verified.', lat:18.6477, lng:73.7744 }
+    ];
+
+    let currentUser = null;
+    let pendingCitizenAuth = null;
+    let map = null;
+    let markersLayer = null;
+    let resendCountdown = 30;
+    let resendInterval = null;
+
+    function initMap() {
+      if (map) return;
+      map = L.map('map').setView([18.622, 73.762], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      markersLayer = L.layerGroup().addTo(map);
+      renderMapPins();
+    }
+
+    function jumpMap(lat, lng, zoom) {
+      if (!map) initMap();
+      map.setView([lat, lng], zoom);
+    }
+
+    function renderMapPins() {
+      if (!markersLayer) return;
+      markersLayer.clearLayers();
+      complaints.forEach(item => {
+        if (!item.lat || !item.lng) return;
+        const color = item.s === 'Resolved' ? '#10b981' : item.s === 'In Progress' ? '#3b82f6' : item.s === 'Assigned' ? '#f59e0b' : '#ef4444';
+        const marker = L.circleMarker([item.lat, item.lng], {
+          radius: 9,
+          fillColor: color,
+          color: '#ffffff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.85
+        });
+        marker.bindPopup(`
+          <div style="font-family:'Segoe UI',sans-serif;font-size:13px;">
+            <b>${item.id} • ${item.c}</b><br>
+            <span style="color:#64748b;">📍 ${item.l} (${item.ward})</span><br>
+            <b>Status:</b> ${item.s}<br>
+            <b>Department:</b> ${item.dept}<br>
+            <p style="margin:4px 0 0;font-size:12px;">${item.d}</p>
+          </div>
+        `);
+        markersLayer.addLayer(marker);
+      });
+    }
+
+    // Unified Auth Handling
+    function handleAuthSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('loginName').value.trim();
+      const loginId = document.getElementById('loginId').value.trim();
+      const area = document.getElementById('loginArea').value;
+      const pass = document.getElementById('loginPassword').value.trim();
+
+      // Check if Admin Credentials Match
+      if (ADMIN_CREDENTIALS[loginId]) {
+        if (pass === '1234') {
+          currentUser = {
+            type: 'admin',
+            id: loginId,
+            name: ADMIN_CREDENTIALS[loginId].label,
+            dept: ADMIN_CREDENTIALS[loginId].dept,
+            cat: ADMIN_CREDENTIALS[loginId].cat,
+            area
+          };
+          loginSuccess();
+          return;
+        } else {
+          alert('Invalid Officer Password.');
+          return;
+        }
+      }
+
+      // Citizen Mobile Login -> Initiate OTP
+      const cleanMobile = loginId.replace(/\D/g, '');
+      if (cleanMobile.length < 10) {
+        alert('Please enter a valid 10-digit mobile number.');
+        return;
+      }
+
+      pendingCitizenAuth = {
+        type: 'citizen',
+        name: name,
+        mobile: cleanMobile,
+        area: area
+      };
+
+      triggerOtpFlow(cleanMobile);
+    }
+
+    function triggerOtpFlow(mobile) {
+      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      sessionStorage.setItem(OTP_KEY, generatedOtp);
+
+      // Trigger Simulation Toast Notification
+      const toast = document.getElementById('smsToast');
+      document.getElementById('smsContent').innerHTML = `Your CivicPulse code for mobile <b>+91 ${mobile}</b> is <span class="otp-highlight">${generatedOtp}</span>.`;
+      toast.style.display = 'block';
+
+      // Open Modal
+      document.getElementById('otpPromptText').textContent = `Verification code sent to +91 ${mobile}`;
+      document.getElementById('otpError').textContent = '';
+      ['o1','o2','o3','o4'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('otpOverlay').style.display = 'flex';
+      document.getElementById('o1').focus();
+
+      startResendTimer();
+    }
+
+    function moveOtpFocus(curr, nextId, prevId) {
+      if (curr.value.length === 1 && nextId) {
+        document.getElementById(nextId).focus();
+      }
+      if (event.key === 'Backspace' && !curr.value && prevId) {
+        document.getElementById(prevId).focus();
+      }
+    }
+
+    function verifyOtp() {
+      const enteredOtp = ['o1','o2','o3','o4'].map(id => document.getElementById(id).value).join('');
+      const expectedOtp = sessionStorage.getItem(OTP_KEY);
+
+      if (enteredOtp === expectedOtp) {
+        currentUser = pendingCitizenAuth;
+        document.getElementById('otpOverlay').style.display = 'none';
+        document.getElementById('smsToast').style.display = 'none';
+        loginSuccess();
+      } else {
+        document.getElementById('otpError').textContent = 'Incorrect code. Check notification banner.';
+      }
+    }
+
+    function startResendTimer() {
+      resendCountdown = 30;
+      clearInterval(resendInterval);
+      const timerLabel = document.getElementById('resendTimer');
+      timerLabel.style.pointerEvents = 'none';
+      timerLabel.textContent = `Resend in ${resendCountdown}s`;
+
+      resendInterval = setInterval(() => {
+        resendCountdown--;
+        if (resendCountdown <= 0) {
+          clearInterval(resendInterval);
+          timerLabel.textContent = 'Resend OTP';
+          timerLabel.style.pointerEvents = 'auto';
+        } else {
+          timerLabel.textContent = `Resend in ${resendCountdown}s`;
+        }
+      }, 1000);
+    }
+
+    function resendOtp() {
+      if (pendingCitizenAuth) {
+        triggerOtpFlow(pendingCitizenAuth.mobile);
+      }
+    }
+
+    function loginSuccess() {
+      document.getElementById('authOverlay').style.display = 'none';
+      document.getElementById('userBadgeName').textContent = currentUser.name;
+      document.getElementById('userBadgeRole').textContent = currentUser.type === 'admin' ? currentUser.dept : 'Citizen (' + currentUser.mobile + ')';
+      renderAll();
+      setTimeout(initMap, 100);
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('authOverlay').style.display = 'flex';
+      document.getElementById('authForm').reset();
+    }
+
+    // Complaints Logic
+    function submitComplaint(e) {
+      e.preventDefault();
+      const cat = document.getElementById('issueCat').value;
+      const ward = document.getElementById('issueWard').value;
+      const loc = document.getElementById('issueLoc').value;
+      const desc = document.getElementById('issueDesc').value;
+      const priority = document.getElementById('issuePriority').value;
+
+      const deptMap = {
+        'Water Leakage': 'Water Department',
+        'Garbage': 'Sanitation Team',
+        'Pothole': 'Road Department',
+        'Streetlight': 'Electrical Department',
+        'Drainage': 'Drainage Department'
+      };
+
+      const coords = COORDS[ward] || [18.622, 73.762];
+      const randomizedLat = coords[0] + (Math.random() - 0.5) * 0.008;
+      const randomizedLng = coords[1] + (Math.random() - 0.5) * 0.008;
+
+      const newIssue = {
+        id: 'MYA-' + Math.floor(100 + Math.random() * 900),
+        n: currentUser.name,
+        m: currentUser.mobile || '9999999999',
+        l: loc,
+        ward: ward,
+        c: cat,
+        p: priority,
+        d: desc,
+        s: 'Reported',
+        dept: deptMap[cat],
+        act: 'Dispatched to department queue.',
+        lat: randomizedLat,
+        lng: randomizedLng
+      };
+
+      complaints.unshift(newIssue);
+      save();
+      e.target.reset();
+      alert('Your complaint ' + newIssue.id + ' has been routed to ' + newIssue.dept);
+      switchView('queueView', document.querySelectorAll('.nav-btn')[2]);
+    }
+
+    function triggerSensor(cat, loc, lat, lng, desc) {
+      const deptMap = {
+        'Water Leakage':'Water Department',
+        'Garbage':'Sanitation Team',
+        'Streetlight':'Electrical Department'
+      };
+      complaints.unshift({
+        id: 'IOT-' + Math.floor(100 + Math.random() * 900),
+        n: 'IoT Telemetry Node',
+        m: '0000000000',
+        l: loc,
+        ward: 'Akurdi-Wakad Corridor',
+        c: cat,
+        p: 'Urgent',
+        d: desc,
+        s: 'Reported',
+        dept: deptMap[cat],
+        act: 'Automated field sensor alert trigger.',
+        lat: lat,
+        lng: lng
+      });
+      save();
+      alert('Hardware telemetry alert recorded on map and dispatch feed.');
+      switchView('queueView', document.querySelectorAll('.nav-btn')[2]);
+    }
+
+    function advanceStatus(id) {
+      const item = complaints.find(x => x.id === id);
+      if (!item) return;
+
+      const flow = ['Reported', 'Assigned', 'In Progress', 'Resolved'];
+      const idx = flow.indexOf(item.s);
+
+      if (idx < flow.length - 1) {
+        item.s = flow[idx + 1];
+        if (item.s === 'Assigned') item.act = 'Field engineer dispatched.';
+        if (item.s === 'In Progress') item.act = 'Repair crew active on site.';
+        if (item.s === 'Resolved') item.act = 'Work completed and confirmed.';
+        save();
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(complaints));
+      renderAll();
+    }
+
+    function renderAll() {
+      // KPI calculation
+      document.getElementById('kpiTotal').textContent = complaints.length;
+      document.getElementById('kpiPending').textContent = complaints.filter(x => x.s === 'Reported' || x.s === 'Assigned').length;
+      document.getElementById('kpiProgress').textContent = complaints.filter(x => x.s === 'In Progress').length;
+      document.getElementById('kpiResolved').textContent = complaints.filter(x => x.s === 'Resolved').length;
+
+      // Filter complaints if current user is an Admin
+      let displayed = complaints;
+      const notice = document.getElementById('queueNotice');
+
+      if (currentUser && currentUser.type === 'admin') {
+        displayed = complaints.filter(x => x.dept === currentUser.dept);
+        notice.innerHTML = `Showing grievances assigned to <b>${currentUser.dept}</b>.`;
+      } else if (currentUser && currentUser.type === 'citizen') {
+        notice.innerHTML = `Showing all corridor complaints. Action items highlighted for mobile <b>${currentUser.mobile}</b>.`;
+      }
+
+      document.getElementById('issuesList').innerHTML = displayed.map(x => {
+        const isMyTicket = currentUser && currentUser.type === 'citizen' && x.m === currentUser.mobile;
+        const canAdvance = (currentUser && currentUser.type === 'admin' && x.s !== 'Resolved') || (isMyTicket && x.s === 'In Progress');
+
+        return `
+          <div class="issue-card">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <b>${x.id} • ${x.c}</b>
+                <span class="badge b-${x.s.replace(' ','')}">${x.s}</span>
+                <span style="font-size:12px;color:var(--muted);">[${x.p}]</span>
+                ${isMyTicket ? '<span class="badge" style="background:#0284c7;color:white;">Your Ticket</span>' : ''}
+              </div>
+              <div style="font-size:13px;color:var(--muted);margin-bottom:6px;">
+                📍 ${x.l} &nbsp;|&nbsp; Ward: <b>${x.ward}</b> &nbsp;|&nbsp; Reporter: ${x.n}
+              </div>
+              <div style="font-size:13px;margin-bottom:6px;">${x.d}</div>
+              <div style="font-size:12px;color:var(--muted);">
+                <b>Dept:</b> ${x.dept} &nbsp;•&nbsp; <b>Action Log:</b> ${x.act}
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:130px;">
+              ${canAdvance ? `
+                <button class="btn btn-primary btn-sm" onclick="advanceStatus('${x.id}')">
+                  ${currentUser.type === 'citizen' ? '✅ Verify & Close' : '⏭️ Advance Stage'}
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('') || '<p style="color:var(--muted);">No complaints currently listed.</p>';
+
+      renderMapPins();
+    }
+
+    function switchView(viewId, btn) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.getElementById('view-' + viewId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      if (viewId === 'mapView') {
+        setTimeout(() => { if (map) map.invalidateSize(); }, 200);
+      }
+    }
+
+    function toggleTheme() {
+      const root = document.documentElement;
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+  </script>
+</body>
+</html>
